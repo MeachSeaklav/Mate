@@ -17,20 +17,19 @@ from datetime import datetime
 import re
 import plotly.express as px
 import requests
+import cloudconvert  # New import for CloudConvert API
 from io import BytesIO  
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Set your OpenAI API key from environment variable
+# Set your API keys and credentials
 openai.api_key = os.getenv('OPENAI_API_KEY')
-
-# Set your Telegram bot token and chat ID
+cloudconvert_api_key = os.getenv('CLOUDCONVERT_API_KEY')  # New: CloudConvert API key
+cloudconvert_api = cloudconvert.Api(api_key=cloudconvert_api_key)  # Initialize CloudConvert API
 telegram_bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-telegram_chat_id = '-1002164741954'  # This can stay hardcoded or also be moved to an environment variable if needed
-
-# Email configuration
+telegram_chat_id = '-1002164741954'
 from_email = "seaklav168@gmail.com"
 password = os.getenv('EMAIL_PASSWORD')
 
@@ -72,7 +71,7 @@ def generate_report_with_chatgpt(data, report_title):
         )
         
         response = openai.ChatCompletion.create(
-            model="gpt-4",  # Or "gpt-3.5-turbo"
+            model="gpt-4o-mini",  # Or "gpt-3.5-turbo"
             messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": prompt}],
             max_tokens=8000,
             temperature=0.7
@@ -82,14 +81,16 @@ def generate_report_with_chatgpt(data, report_title):
         
         st.write(report_parts)
         
-        # Save report as Word document with the dynamic title
+        # Save report as Word and PDF documents with the dynamic title
         word_filename = f'{report_title}.docx'
+        pdf_filename = f'{report_title}.pdf'
         save_report_as_word(report_parts, word_filename)
+        convert_to_pdf_with_cloudconvert(word_filename, pdf_filename)
         
-        return report_parts, word_filename
+        return report_parts, word_filename, pdf_filename
     except Exception as e:
         st.error(f"Failed to generate report: {e}")
-        return None, None
+        return None, None, None
 
 def create_cover_page(doc, report_title):
     section = doc.sections[0]
@@ -267,10 +268,31 @@ def save_report_as_word(report, filename):
     except Exception as e:
         st.error(f"Failed to save Word report: {e}")
 
-def create_zip_file(word_filename, zip_filename):
+def convert_to_pdf_with_cloudconvert(word_filename, pdf_filename):
+    try:
+        process = cloudconvert_api.create_process({
+            "inputformat": "docx",
+            "outputformat": "pdf",
+            "input": "upload",
+            "file": word_filename,
+        })
+        process.start({
+            'input': 'upload',
+            'file': open(word_filename, 'rb'),
+            'outputformat': 'pdf',
+            'filename': pdf_filename
+        })
+        process.wait()
+        process.download(pdf_filename)
+        st.success(f"Successfully converted {word_filename} to {pdf_filename}")
+    except Exception as e:
+        st.error(f"Failed to convert Word to PDF: {e}")
+
+def create_zip_file(word_filename, pdf_filename, zip_filename):
     try:
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
             zipf.write(word_filename)
+            zipf.write(pdf_filename)
         st.success(f"Zip file {zip_filename} created successfully.")
     except Exception as e:
         st.error(f"Failed to create zip file: {e}")
@@ -489,21 +511,24 @@ def dashboard():
 
                 # Generate report with the ChatGPT API
                 if "report_parts" not in st.session_state:
-                    report_content, word_filename = generate_report_with_chatgpt(data, report_title)
+                    report_content, word_filename, pdf_filename = generate_report_with_chatgpt(data, report_title)
                 else:
                     report_content = st.session_state["report_parts"]
                     word_filename = f'{report_title}.docx'
+                    pdf_filename = f'{report_title}.pdf'
                     save_report_as_word(report_content, word_filename)
+                    convert_to_pdf_with_cloudconvert(word_filename, pdf_filename)
 
                 if report_content:
                     zip_filename = f'{report_title}.zip'
-                    create_zip_file(word_filename, zip_filename)
+                    create_zip_file(word_filename, pdf_filename, zip_filename)
                     
                     # Send email with the zip file
                     send_email_with_attachments(f"{report_title} Generated Report", "Please find the attached reports.", [zip_filename])
 
                     # Send report to Telegram
                     send_to_telegram(word_filename, f"Here is your generated {report_title} (Word).")
+                    send_to_telegram(pdf_filename, f"Here is your generated {report_title} (PDF).")
                     
                     # Custom style for the download button
                     st.markdown("""
