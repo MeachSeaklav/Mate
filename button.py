@@ -17,8 +17,7 @@ from datetime import datetime
 import re
 import plotly.express as px
 import requests
-from docx2pdf import convert
-import pythoncom  
+from docx2pdf import convert 
 from io import BytesIO  
 from dotenv import load_dotenv
 
@@ -274,21 +273,34 @@ def save_report_as_word(report, filename):
     except Exception as e:
         st.error(f"Failed to save Word report: {e}")
 
+# def convert_to_pdf_with_retry(word_filename, pdf_filename, retries=3, delay=5):
+#     try:
+#         pythoncom.CoInitialize()
+#         for attempt in range(retries):
+#             try:
+#                 convert(word_filename, pdf_filename)
+#                 return
+#             except Exception as e:
+#                 st.error(f"Attempt {attempt + 1} failed: {e}")
+#                 if attempt < retries - 1:
+#                     time.sleep(delay)
+#                 else:
+#                     st.error("Failed to convert Word to PDF after multiple attempts.")
+#     finally:
+#         pythoncom.CoUninitialize()
+
 def convert_to_pdf_with_retry(word_filename, pdf_filename, retries=3, delay=5):
-    try:
-        pythoncom.CoInitialize()
-        for attempt in range(retries):
-            try:
-                convert(word_filename, pdf_filename)
-                return
-            except Exception as e:
-                st.error(f"Attempt {attempt + 1} failed: {e}")
-                if attempt < retries - 1:
-                    time.sleep(delay)
-                else:
-                    st.error("Failed to convert Word to PDF after multiple attempts.")
-    finally:
-        pythoncom.CoUninitialize()
+    for attempt in range(retries):
+        try:
+            convert(word_filename, pdf_filename)
+            st.success("Conversion successful!")
+            return
+        except Exception as e:
+            st.error(f"Attempt {attempt + 1} failed: {e}")
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                st.error("Failed to convert Word to PDF after multiple attempts.")
 
 def create_zip_file(word_filename, pdf_filename, zip_filename):
     try:
