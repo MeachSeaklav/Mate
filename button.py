@@ -25,8 +25,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Set your API keys and credentials
-openai.api_key = os.getenv('OPENAI_API_KEY')
-cloudconvert_api_key = os.getenv('CLOUDCONVERT_API_KEY')  # New: CloudConvert API key
+openai.api_key = st.secrets["OPENAI_API_KEY"]
+cloudconvert_api_key = st.secrets('CLOUDCONVERT_API_KEY')  # New: CloudConvert API key
 cloudconvert_api = cloudconvert.Api(api_key=cloudconvert_api_key)  # Initialize CloudConvert API
 telegram_bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
 telegram_chat_id = '-1002164741954'
