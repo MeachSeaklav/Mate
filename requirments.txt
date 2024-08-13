@@ -214,8 +214,7 @@ yarl==1.9.4
 streamlit
 python-docx
 docx2pdf
-requests
-pandas
-openai
-python-dotenv
+python-dotenv==1.0.0
+python-docx==0.8.11
+requests==2.31.0
 
